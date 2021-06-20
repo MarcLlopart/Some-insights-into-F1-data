@@ -1,0 +1,2816 @@
+---
+title: "R Notebook"
+output: html_notebook
+MARC LLOPART ENAJAS
+F1 - TEST PROJECT
+---
+
+
+
+
+```{r}
+library(magrittr)
+library(tidyverse)
+library(plotly)
+library(DT)
+```
+```{r}
+setwd("MATCAD/2n Curs/ADC/Final Project/F1 Option/archive/")
+```
+```{r}
+#we upload and prepare the diferent datasets
+races <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+#rm(gp, dr, cons)
+#we get the latest usual calendar (2019), we are not taking 2020 due to a Covid Season, so we can consider that 2020's calendar wasn't the usual and as we are looking forward to a situation which is the most similar to a normal season we get 2019.
+gp_names = unique(results$circuit)
+gp_names
+
+```
+```{r}
+
+```
+
+Divide data into diferent GP
+```{r}
+#Australia
+circuitLenght = 5.280
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[1]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedAustralia = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedAustralia = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#Bahrain
+circuitLenght = 	5.412 
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[2]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedBahrain = max(results$fastestLapSpeed)
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedBahrain = laps[1]*circuitLenght/hours
+```
+```{r}
+#CHINA
+circuitLenght = 	5.451
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[3]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedChina = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedChina = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#AZERBAIJAN
+circuitLenght = 	6.003
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[4]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedAzer = max(results$fastestLapSpeed)
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedAzer = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#sPAIN
+circuitLenght = 	4.675
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[5]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedSpain = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedSpain = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#MONACO
+circuitLenght = 	3.337
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[6]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedMonaco = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedMonaco = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#CANADA
+circuitLenght = 	4.361
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[7]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedCanada = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedCanada = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#FRANCE
+circuitLenght = 	5.842
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[8]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedFR = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedFR = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#AUSTRIA
+circuitLenght = 	4.326
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[9]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedAustrian = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedAustrian = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#BRITISH
+circuitLenght = 	5.891
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[10]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedGB = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedGB = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#GERMAN
+circuitLenght = 		4.574
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[11]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedGR = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedGR = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#HUNGRIA
+circuitLenght = 		4.381
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[12]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedHUN = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedHUN = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#BELGIUM
+circuitLenght = 7.004
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[13]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedBEL = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedBEL = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#ITALY
+circuitLenght = 5.793
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[14]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedITA = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedITA = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#SINGAPORE
+circuitLenght = 5.063
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[15]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedSIN = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedSIN = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#RUSSIA
+circuitLenght = 5.848
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[16]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedRU = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedRU = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#JAPAN
+circuitLenght = 5.807
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[17]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedJP = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedJP = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#MEXICO
+circuitLenght = 4.304
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[18]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedMEX = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedMEX = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#USA GP
+circuitLenght =	5.513
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[19]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedUS = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedUS = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#BRASIL
+circuitLenght =	4.309
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[20]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedBR = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedBR = laps[1]*circuitLenght/hours
+
+```
+```{r}
+#ABU DHABI
+circuitLenght =	5.554
+racesAustralia <- read.csv("races.csv") %>% 
+  filter(year == 2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit == gp_names[21]) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+topSpeedABD = max(results$fastestLapSpeed)
+
+timeGP<-as.numeric(results$milliseconds[results$milliseconds!="\\N"])
+laps = results$laps[!is.na(results$laps)]
+ 
+hours=timeGP[1] *( 2.77777778 * 1e-7)
+avgSpeedABD = laps[1]*circuitLenght/hours
+
+```
+
+
+DIVIDE CIRCUITS IN FAST OR SLOW ONES
+```{r}
+#NOW WE NEED TO QUALIFY THE VELOCITIES INTO A FAST CIRCUIT OR SLOW ONE
+
+topSpeeds = c(topSpeedAustralia,topSpeedBahrain, topSpeedChina, topSpeedAzer, topSpeedSpain, topSpeedMonaco, topSpeedCanada, 
+              topSpeedFR,   topSpeedAustrian, topSpeedGB, topSpeedGR, topSpeedHUN, topSpeedBEL, topSpeedITA, topSpeedSIN, topSpeedRU,
+              topSpeedJP, topSpeedMEX, topSpeedUS, topSpeedBR, topSpeedABD)
+avgSpeeds = c(avgSpeedAustralia,avgSpeedBahrain, avgSpeedChina, avgSpeedAzer, avgSpeedSpain, avgSpeedMonaco, avgSpeedCanada, 
+              avgSpeedFR,   avgSpeedAustrian, avgSpeedGB, avgSpeedGR, avgSpeedHUN, avgSpeedBEL, avgSpeedITA, avgSpeedSIN, avgSpeedRU,
+              avgSpeedJP, avgSpeedMEX, avgSpeedUS, avgSpeedBR, avgSpeedABD)
+
+mean(as.numeric(topSpeeds))
+mean(avgSpeeds)
+fastCircuits = c()
+slowCircuits = c()
+
+for (i in 1:length(avgSpeeds)){
+  
+  if (avgSpeeds[i] > mean(avgSpeeds)){
+      fastCircuits=append(fastCircuits,gp_names[i])
+  }else{
+    slowCircuits=append(slowCircuits,gp_names[i])
+  }
+}
+fastCircuits
+slowCircuits
+
+```
+cHECK RESULTS FOR SLOW CIRCUITS
+```{r}
+teamsAA<-c("McLaren","Ferrari", "Mercedes", "Red Bull", "Renault", "Williams")
+teamsAA
+years <- c(2015,2016,2017,2018,2019,2020)
+races <- read.csv("races.csv") %>% 
+  filter(year %in% years) %>% 
+  rename(circuit = name)
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  filter(cons.name %in% teamsAA) %>%
+  select(-raceId, -constructorId)
+
+
+
+results
+constructor_standings
+
+```
+TAKE TOP6 TEAMS FOR THE LAST YEARS AND CHECK THEIR RESULTS IN CIRCUITS BY YEARS (one by each year)
+
+```{r}
+teamsAA<-c("McLaren","Ferrari", "Mercedes", "Red Bull", "Renault", "Williams")
+years <- c(2015,2016,2017,2018,2019,2020)
+races <- read.csv("races.csv") %>% 
+  filter(year == years[2]) %>% 
+  rename(circuit = name)
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  filter(cons.name %in% teamsAA) %>%
+  select(-raceId, -constructorId)
+teams<-unique(constructor_standings$cons.name)
+
+
+mclaren <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[1]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[1]]-1)
+ferrari <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[2]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[2]]-1)
+mercedes <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[3]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[3]]-1)
+red_bull <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[4]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[4]]-1)
+renault <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[5]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[5]]-1)
+williams <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[6]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[6]]-1)
+
+ggplot() +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[1]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[1]],colour = teamsAA[1])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[2]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[2]],colour = teamsAA[2])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[3]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[3]],colour = teamsAA[3])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[4]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[4]],colour = teamsAA[4])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[5]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[5]],colour = teamsAA[5])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[6]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[6]],colour = teamsAA[6])) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[1]],y=mclaren$fitted.values),color="orange", size=1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[2]],y=ferrari$fitted.values),color="red", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[3]],y=mercedes$fitted.values),color="green", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[4]],y=red_bull$fitted.values),color="blue", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[5]],y=renault$fitted.values),color="cyan", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[6]],y=williams$fitted.values),color="pink", size = 1) +
+
+  labs(title = "Points by wins", colour = "Teams") + xlab("Circuits") + ylab("Points") 
+```
+
+```{r}
+teamsAA<-c("McLaren","Ferrari", "Mercedes", "Red Bull", "Renault", "Williams", "Team Lotus")
+years <- c(2015,2016,2017,2018,2019,2020)
+races <- read.csv("races.csv") %>% 
+  filter(year == years[3]) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  filter(cons.name %in% teamsAA) %>%
+  select(-raceId, -constructorId)
+teams<-unique(constructor_standings$cons.name)
+
+
+mclaren <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[1]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[1]]-1)
+ferrari <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[2]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[2]]-1)
+mercedes <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[3]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[3]]-1)
+red_bull <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[4]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[4]]-1)
+renault <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[5]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[5]]-1)
+
+ggplot() +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[1]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[1]],colour = teamsAA[1])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[2]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[2]],colour = teamsAA[2])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[3]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[3]],colour = teamsAA[3])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[4]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[4]],colour = teamsAA[4])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[5]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[5]],colour = teamsAA[5])) +
+
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[1]],y=mclaren$fitted.values),color="orange", size=1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[2]],y=ferrari$fitted.values),color="red", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[3]],y=mercedes$fitted.values),color="green", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[4]],y=red_bull$fitted.values),color="blue", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[5]],y=renault$fitted.values),color="pink", size = 1) +
+
+  labs(title = "Points by Circuit", colour = "Teams") + xlab("Circuits") + ylab("Points") 
+teamsAA<-c("McLaren","Ferrari", "Mercedes", "Red Bull", "Renault")
+years <- c(2015,2016,2017,2018,2019,2020)
+races <- read.csv("races.csv") %>% 
+  filter(year == years[4]) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  filter(cons.name %in% teamsAA) %>%
+  select(-raceId, -constructorId)
+teams<-unique(constructor_standings$cons.name)
+
+
+mclaren <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[1]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[1]]-1)
+ferrari <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[2]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[2]]-1)
+mercedes <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[3]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[3]]-1)
+red_bull <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[4]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[4]]-1)
+renault <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[5]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[5]]-1)
+
+ggplot() +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[1]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[1]],colour = teamsAA[1])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[2]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[2]],colour = teamsAA[2])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[3]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[3]],colour = teamsAA[3])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[4]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[4]],colour = teamsAA[4])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[5]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[5]],colour = teamsAA[5])) +
+
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[1]],y=mclaren$fitted.values),color="orange", size=1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[2]],y=ferrari$fitted.values),color="red", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[3]],y=mercedes$fitted.values),color="green", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[4]],y=red_bull$fitted.values),color="blue", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[5]],y=renault$fitted.values),color="pink", size = 1) +
+
+  labs(title = "Points by Circuit", colour = "Teams") + xlab("Circuits") + ylab("Points") 
+teamsAA<-c("McLaren","Ferrari", "Mercedes", "Red Bull", "Renault", "Williams", "Team Lotus")
+years <- c(2015,2016,2017,2018,2019,2020)
+races <- read.csv("races.csv") %>% 
+  filter(year == years[5]) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  filter(cons.name %in% teamsAA) %>%
+  select(-raceId, -constructorId)
+teams<-unique(constructor_standings$cons.name)
+
+
+mclaren <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[1]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[1]]-1)
+ferrari <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[2]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[2]]-1)
+mercedes <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[3]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[3]]-1)
+red_bull <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[4]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[4]]-1)
+renault <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[5]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[5]]-1)
+
+ggplot() +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[1]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[1]],colour = teamsAA[1])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[2]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[2]],colour = teamsAA[2])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[3]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[3]],colour = teamsAA[3])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[4]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[4]],colour = teamsAA[4])) +
+  geom_point(aes(x = constructor_standings$round[constructor_standings$cons.name==teamsAA[5]], y =constructor_standings$points[constructor_standings$cons.name == teamsAA[5]],colour = teamsAA[5])) +
+
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[1]],y=mclaren$fitted.values),color="orange", size=1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[2]],y=ferrari$fitted.values),color="red", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[3]],y=mercedes$fitted.values),color="green", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[4]],y=red_bull$fitted.values),color="blue", size = 1) +
+  geom_line(aes(x=constructor_standings$round[constructor_standings$cons.name==teamsAA[5]],y=renault$fitted.values),color="pink", size = 1) +
+
+  labs(title = "Points by Circuit", colour = "Teams") + xlab("Circuits") + ylab("Points") 
+
+
+
+
+```
+```{r}
+c <- constructor_standings$round[constructor_standings$cons.name == teamsAA[1]]
+h <- constructor_standings$points[constructor_standings$cons.name == teamsAA[1]]
+originalPierson<-cor(c, h, method="pearson")
+originalPierson
+originalSpearman<-cor(c, h, method="spearman")
+originalSpearman
+
+nr = 10000
+n<-length(h)
+
+rearrangement_number<-10000
+
+piersonRear<-numeric(rearrangement_number)
+spearmanRear<-numeric(rearrangement_number)
+piersonCount<-0
+spearmanCount<-0
+
+for(i in 1:nr){
+  rear<-sample(h, n)
+  piersonRear[i]<-cor(c, rear, method="pearson")
+  spearmanRear[i]<-cor(c, rear, method="spearman")
+  if(piersonRear[i]>=originalPierson){ piersonCount=piersonCount+1}
+  if(spearmanRear[i]>=originalSpearman){ spearmanCount=spearmanCount+1}
+}
+
+hist(spearmanRear, xlab="Spearman Correlation Coefficient", main="10.000 permutations (Spearman)") #plotieu
+spearmanCount/rearrangement_number #Non of the rearrangements gives a superior R -> p-value=0
+
+hist(piersonRear,  xlab="Pearson Correlation Coefficient", main="10.000 permutations (Pearson)") #plotieu
+piersonCount/rearrangement_number # p-value=0
+
+```
+
+```{r}
+c <- constructor_standings$round[constructor_standings$cons.name == teamsAA[2]]
+h <- constructor_standings$points[constructor_standings$cons.name == teamsAA[2]]
+originalPierson<-cor(c, h, method="pearson")
+originalPierson
+originalSpearman<-cor(c, h, method="spearman")
+originalSpearman
+
+nr = 10000
+n<-length(h)
+
+rearrangement_number<-10000
+
+piersonRear<-numeric(rearrangement_number)
+spearmanRear<-numeric(rearrangement_number)
+piersonCount<-0
+spearmanCount<-0
+
+for(i in 1:nr){
+  rear<-sample(h, n)
+  piersonRear[i]<-cor(c, rear, method="pearson")
+  spearmanRear[i]<-cor(c, rear, method="spearman")
+  if(piersonRear[i]>=originalPierson){ piersonCount=piersonCount+1}
+  if(spearmanRear[i]>=originalSpearman){ spearmanCount=spearmanCount+1}
+}
+
+hist(spearmanRear, xlab="Spearman Correlation Coefficient", main="10.000 permutations (Spearman)") #plotieu
+spearmanCount/rearrangement_number #Non of the rearrangements gives a superior R -> p-value=0
+
+hist(piersonRear,  xlab="Pearson Correlation Coefficient", main="10.000 permutations (Pearson)") #plotieu
+piersonCount/rearrangement_number # p-value=0
+
+```
+```{r}
+c <- constructor_standings$round[constructor_standings$cons.name == teamsAA[3]]
+h <- constructor_standings$points[constructor_standings$cons.name == teamsAA[3]]
+originalPierson<-cor(c, h, method="pearson")
+originalPierson
+originalSpearman<-cor(c, h, method="spearman")
+originalSpearman
+
+nr = 10000
+n<-length(h)
+
+rearrangement_number<-10000
+
+piersonRear<-numeric(rearrangement_number)
+spearmanRear<-numeric(rearrangement_number)
+piersonCount<-0
+spearmanCount<-0
+
+for(i in 1:nr){
+  rear<-sample(h, n)
+  piersonRear[i]<-cor(c, rear, method="pearson")
+  spearmanRear[i]<-cor(c, rear, method="spearman")
+  if(piersonRear[i]>=originalPierson){ piersonCount=piersonCount+1}
+  if(spearmanRear[i]>=originalSpearman){ spearmanCount=spearmanCount+1}
+}
+
+hist(spearmanRear, xlab="Spearman Correlation Coefficient", main="10.000 permutations (Spearman)") #plotieu
+spearmanCount/rearrangement_number #Non of the rearrangements gives a superior R -> p-value=0
+
+hist(piersonRear,  xlab="Pearson Correlation Coefficient", main="10.000 permutations (Pearson)") #plotieu
+piersonCount/rearrangement_number # p-value=0
+
+```
+```{r}
+c <- constructor_standings$round[constructor_standings$cons.name == teamsAA[4]]
+h <- constructor_standings$points[constructor_standings$cons.name == teamsAA[4]]
+originalPierson<-cor(c, h, method="pearson")
+originalPierson
+originalSpearman<-cor(c, h, method="spearman")
+originalSpearman
+
+nr = 10000
+n<-length(h)
+
+rearrangement_number<-10000
+
+piersonRear<-numeric(rearrangement_number)
+spearmanRear<-numeric(rearrangement_number)
+piersonCount<-0
+spearmanCount<-0
+
+for(i in 1:nr){
+  rear<-sample(h, n)
+  piersonRear[i]<-cor(c, rear, method="pearson")
+  spearmanRear[i]<-cor(c, rear, method="spearman")
+  if(piersonRear[i]>=originalPierson){ piersonCount=piersonCount+1}
+  if(spearmanRear[i]>=originalSpearman){ spearmanCount=spearmanCount+1}
+}
+
+hist(spearmanRear, xlab="Spearman Correlation Coefficient", main="10.000 permutations (Spearman)") #plotieu
+spearmanCount/rearrangement_number #Non of the rearrangements gives a superior R -> p-value=0
+
+hist(piersonRear,  xlab="Pearson Correlation Coefficient", main="10.000 permutations (Pearson)") #plotieu
+piersonCount/rearrangement_number # p-value=0
+```
+```{r}
+
+c <- constructor_standings$round[constructor_standings$cons.name == teamsAA[5]]
+h <- constructor_standings$points[constructor_standings$cons.name == teamsAA[5]]
+originalPierson<-cor(c, h, method="pearson")
+originalPierson
+originalSpearman<-cor(c, h, method="spearman")
+originalSpearman
+
+nr = 10000
+n<-length(h)
+
+rearrangement_number<-10000
+
+piersonRear<-numeric(rearrangement_number)
+spearmanRear<-numeric(rearrangement_number)
+piersonCount<-0
+spearmanCount<-0
+
+for(i in 1:nr){
+  rear<-sample(h, n)
+  piersonRear[i]<-cor(c, rear, method="pearson")
+  spearmanRear[i]<-cor(c, rear, method="spearman")
+  if(piersonRear[i]>=originalPierson){ piersonCount=piersonCount+1}
+  if(spearmanRear[i]>=originalSpearman){ spearmanCount=spearmanCount+1}
+}
+
+hist(spearmanRear, xlab="Spearman Correlation Coefficient", main="10.000 permutations (Spearman)") #plotieu
+spearmanCount/rearrangement_number #Non of the rearrangements gives a superior R -> p-value=0
+
+hist(piersonRear,  xlab="Pearson Correlation Coefficient", main="10.000 permutations (Pearson)") #plotieu
+piersonCount/rearrangement_number # p-value=0
+
+```
+
+
+
+
+
+
+
+
+```{r}
+mclaren <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[1]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[1]]-1)
+ferrari <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[2]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[2]]-1)
+mercedes <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[3]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[3]]-1)
+red_bull <-lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[4]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[4]]-1)
+renault <- lm (constructor_standings$points[constructor_standings$cons.name == teamsAA[5]] ~ constructor_standings$round[constructor_standings$cons.name==teamsAA[5]]-1)
+
+print("McLaren")
+summary(mclaren)
+
+print("Ferrari")
+summary(ferrari)
+print("Mercedes")
+summary(mercedes)
+print("Red Bull")
+summary(red_bull)
+print("Renault")
+summary(renault)
+
+
+```
+
+```{r}
+years = c(2015,2016,2017,2018,2019)
+races <- read.csv("races.csv") %>% 
+  filter(year ==2019) %>% 
+  rename(circuit = name)
+
+
+
+status = read.csv("status.csv")
+results <- read.csv("results.csv") %>% 
+  filter(raceId %in% races$raceId) %>% 
+  left_join(status, by = "statusId") %>% 
+  select(-statusId, -resultId)
+remove(status)
+
+driver_standings <- read.csv("driver_standings.csv") %>% 
+  filter(raceId %in% races$raceId,
+         # Remove Hülkenberg, Pittipaldi, Aitken
+         !driverId %in% c(807, 850, 851)) %>% 
+  select(-driverStandingsId)
+
+constructor_standings <- read.csv("constructor_standings.csv") %>% 
+  filter(raceId %in% races$raceId)%>% 
+  select(-constructorStandingsId)
+
+lap_times <- read.csv("lap_times.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+pit_stops <- read.csv("pit_stops.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+qualifying <- read.csv("qualifying.csv") %>% 
+  filter(raceId %in% races$raceId,
+         !driverId %in% c(807, 850, 851))
+
+
+drivers <- read.csv("drivers.csv", encoding = "UTF-8") %>% 
+  filter(driverId %in% driver_standings$driverId) %>% 
+  unite(driver.name, c("forename", "surname"), sep = " ") %>% 
+  select(driverId, code, number, driver.name, dob, nationality, url) %>% 
+  rename(driver.number = number)
+
+constructors <- read.csv("constructors.csv") %>% 
+  filter(constructorId %in% constructor_standings$constructorId) %>% 
+  select(-constructorRef) %>% rename(cons.name = name)
+
+
+
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  
+  select(-raceId, -driverId, -constructorId)
+  
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+  select(-raceId, -constructorId)
+
+driver_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+lap_times %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId")%>% 
+  select(-raceId, -driverId)
+
+pit_stops %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  select(-raceId, -driverId)
+
+qualifying %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId") %>% 
+  select(-raceId, -driverId, -constructorId, -qualifyId)
+
+results
+constructor_standings
+```
+
+
+
+```{r}
+c <- results$points[results$rank=="1"]
+
+d<-results$points[results$rank != "1"]
+nr=10000 #number of rearrangements to be examined
+st<-numeric(nr)
+
+n1=length (c);n2=length (d)
+total<-n1+n2
+sttrue= mean(c)-mean(d)
+cnt= 0 #zero the counter
+#Put both sets of observations in a single vector
+vect = c(c, d)
+for (i in 1:nr){
+d= sample (vect,n1+n2)
+ne<-d[1:n1]
+a<-n1+1;co<-d[a:total]
+st[i]<-mean(ne)-mean(co)
+if (st[i] >= sttrue)cnt=cnt+1 }
+hist(st)
+sttrue
+cnt/nr #pvalue
+
+```
+
+
+```{r}
+races <- read.csv("races.csv") %>% 
+  filter(year ==2019) %>% 
+  rename(circuit = name)
+gp <- races %>% select(raceId, round, circuit)
+dr <- drivers %>% select(driverId, driver.name, code, driver.number)
+cons <- constructors %>% select(constructorId, cons.name) 
+
+results %<>%  left_join(gp, by = "raceId") %>%
+  left_join(dr, by = "driverId") %>% 
+  left_join(cons, by = "constructorId")%>%
+  filter(circuit %in% gp_names) %>%
+  
+  select(-raceId, -driverId, -constructorId)
+constructor_standings %<>%  left_join(gp, by = "raceId") %>%
+  left_join(cons, by = "constructorId")%>% 
+  filter(circuit %in% gp_names) %>%
+# Podiums
+left_join(
+  results %>%
+    filter(positionOrder < 4) %>% 
+    group_by(cons.name) %>% 
+    count(name = "Podiums") 
+) %>% 
+# Poles
+left_join(
+  qualifying %>% 
+    filter(position == 1) %>% 
+    group_by(cons.name) %>% 
+    count(name = "Poles")
+) 
+  select(-raceId, -constructorId)
+
+
+cons_comp <- constructor_standings
+
+cons_comp
+
+
+```
+```{r}
+x=  cons_comp$Poles
+y= cons_comp$wins
+nr=100 #number of rearrangements to be examined
+st=numeric(nr)
+sttrue= cor(x,y,use="complete.obs")
+n=length(y)
+cnt=0
+
+for (i in 1:nr){
+d= sample (y,n)
+st[i]<-cor(d,x,use="complete.obs")
+if (st[i] > sttrue)cnt=cnt+1 }
+cnt/nr #pvalue
+hist(st)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
